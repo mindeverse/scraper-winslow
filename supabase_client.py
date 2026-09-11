@@ -40,27 +40,45 @@ class SupabaseClient:
             logger.error("Failed to fetch existing products: %s", e)
         return result
 
-    def upsert_products(self, products: list[dict[str, Any]], batch_size: int = 50) -> tuple[int, int]:
+    def upsert_products(self, products: list[dict[str, Any]], batch_size: int = 5) -> tuple[int, int]:
         total = len(products)
         batches = [products[i : i + batch_size] for i in range(0, total, batch_size)]
         ok = 0
         fail = 0
         for i, batch in enumerate(batches):
             logger.info("Upserting batch %d/%d (%d products)", i + 1, len(batches), len(batch))
+            batch_ok = False
             for attempt in range(3):
                 try:
                     self.client.table("products").upsert(
-                        batch, on_conflict="source, product_url"
+                        batch, on_conflict="source,product_url"
                     ).execute()
                     ok += len(batch)
+                    batch_ok = True
                     break
                 except Exception as e:
                     logger.warning("Batch upsert attempt %d/3 failed: %s", attempt + 1, e)
-                    if attempt == 2:
-                        fail += len(batch)
-                        self._log_failed_products(batch)
-                    else:
+                    time.sleep(2 ** (attempt + 1))
+            if batch_ok:
+                continue
+            # Fall back to single-row upserts (avoids statement timeout on vector batches)
+            logger.warning("Falling back to single-row upsert for batch %d", i + 1)
+            for row in batch:
+                row_ok = False
+                for attempt in range(3):
+                    try:
+                        self.client.table("products").upsert(
+                            row, on_conflict="source,product_url"
+                        ).execute()
+                        ok += 1
+                        row_ok = True
+                        break
+                    except Exception as e:
+                        logger.warning("Single upsert attempt %d/3 failed: %s", attempt + 1, e)
                         time.sleep(2 ** (attempt + 1))
+                if not row_ok:
+                    fail += 1
+                    self._log_failed_products([row])
         return ok, fail
 
     def delete_product(self, product_id: str) -> None:

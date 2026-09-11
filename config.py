@@ -39,7 +39,7 @@ class Config:
     EMBEDDING_DIM: int = 768
     EMBEDDING_VERSION: int = 2
     RATE_LIMIT_DELAY: float = 1.0
-    BATCH_SIZE: int = 50
+    BATCH_SIZE: int = 5
     STALE_MISS_THRESHOLD: int = 2
     REQUEST_TIMEOUT: int = 30
     USER_AGENT: str = (
