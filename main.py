@@ -71,7 +71,7 @@ def _to_db_row(record: dict[str, Any]) -> dict[str, Any]:
     }
     if record.get("image_embedding"):
         row["image_embedding"] = record["image_embedding"]
-        row["embedding_version"] = cfg.EMBEDDING_VERSION
+        # Live products table has no embedding_version column — do not send it.
     if record.get("back_image_embedding") is not None:
         row["back_image_embedding"] = record["back_image_embedding"]
     if record.get("info_embedding"):
